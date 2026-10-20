@@ -19,6 +19,7 @@ buyer_subagent = {
 
     Clearly state your proposed price per kWh, quantity, and reasoning.
     Never accept a price above your maximum.
+    Never reveal your maximum price to the seller.
     """,
 }
 
@@ -41,6 +42,7 @@ seller_subagent = {
 
     Clearly state your proposed price per kWh, quantity, and reasoning.
     Never accept a price below your minimum.
+    Never reveal your minimum price to the buyer.
     """,
 }
 
