@@ -1,39 +1,31 @@
-const MIN = 0.10, MAX = 0.25, QTY = 3;
-
-const SCRIPT = [
-  { round: 1 },
-  { sup: "Asking buyer for an opening offer" },
-  { who: "buyer", kind: "OFFER", price: 0.12, text: "Three kWh is a small order. I can do €0.12 per kWh." },
-  { sup: "Passing buyer's offer (€0.12) to seller" },
-  { who: "seller", kind: "OFFER", price: 0.22, text: "That's too low for clean, ready power. My price is €0.22 per kWh." },
-  { round: 2 },
-  { sup: "Passing seller's offer (€0.22) to buyer" },
-  { who: "buyer", kind: "OFFER", price: 0.16, text: "I'll move up to €0.16. Pay me back in volume next time." },
-  { sup: "Passing buyer's offer (€0.16) to seller" },
-  { who: "seller", kind: "OFFER", price: 0.19, text: "I can come down to €0.19 per kWh." },
-  { round: 3 },
-  { sup: "Passing seller's offer (€0.19) to buyer" },
-  { who: "buyer", kind: "OFFER", price: 0.18, text: "Last move from me: €0.18 per kWh." },
-  { sup: "Passing buyer's offer (€0.18) to seller" },
-  { who: "seller", kind: "ACCEPT", price: 0.18, text: "Fair enough. I accept €0.18 per kWh for 3 kWh." },
-  { done: 0.18 },
-];
+const MIN = 0.10, MAX = 0.25, QTY = 3, ROUNDS = 3;
+const GRAPH_ID = "gridmates";
+const PROMPT = "Start the electricity negotiation between the buyer and the seller.";
 
 const $ = (id) => document.getElementById(id);
 const els = {
   log: $("log"), round: $("round-label"), supBox: $("supervisor"), supText: $("sup-text"),
   pinB: $("pin-buyer"), pinS: $("pin-seller"), deal: $("deal"), result: $("result"),
-  play: $("btn-play"), replay: $("btn-replay"),
+  start: $("btn-start"), status: $("status"), server: $("server"), apikey: $("apikey"),
   actors: { buyer: $("buyer"), seller: $("seller") },
 };
-
-let index = 0, paused = false, timer = null;
 
 const pct = (p) => ((p - MIN) / (MAX - MIN)) * 100 + "%";
 const eur = (p) => "€" + p.toFixed(2);
 
 function setTalking(who) {
   for (const [name, el] of Object.entries(els.actors)) el.classList.toggle("talking", name === who);
+}
+
+function setStatus(text, isError = false) {
+  els.status.hidden = !text;
+  els.status.textContent = text || "";
+  els.status.classList.toggle("error", isError);
+}
+
+function setSupervisor(text) {
+  els.supText.textContent = text;
+  els.supBox.classList.add("active");
 }
 
 function addMessage(cls, who, price, text) {
@@ -47,7 +39,7 @@ function addMessage(cls, who, price, text) {
   }
   const bubble = document.createElement("div");
   bubble.className = "bubble";
-  if (price != null) {
+  if (price) {
     const p = document.createElement("span");
     p.className = "price";
     p.textContent = price;
@@ -61,69 +53,177 @@ function addMessage(cls, who, price, text) {
 
 function movePin(pin, price) {
   pin.hidden = false;
-  pin.style.left = pct(price);
+  pin.style.left = pct(Math.min(MAX, Math.max(MIN, price)));
   pin.firstElementChild.textContent = eur(price);
 }
 
 function reset() {
-  clearTimeout(timer);
-  index = 0;
   els.log.replaceChildren();
   els.result.hidden = true;
   for (const pin of [els.pinB, els.pinS, els.deal]) pin.hidden = true;
-  els.round.textContent = "Round 1 of 3";
+  els.round.textContent = "Round 1 of " + ROUNDS;
   els.supText.textContent = "Supervisor ready";
   els.supBox.classList.remove("active");
   setTalking(null);
+  setStatus("");
 }
 
-// Returns how long to wait before the next step.
-function runStep(step) {
-  if (step.round) {
-    els.round.textContent = `Round ${step.round} of 3`;
-    return 300;
+// --- Agent server (LangGraph API served by `mda dev`) ---
+
+function headers() {
+  const h = { "Content-Type": "application/json" };
+  if (els.apikey.value.trim()) h["x-api-key"] = els.apikey.value.trim();
+  return h;
+}
+
+async function api(path, body) {
+  const base = els.server.value.replace(/\/$/, "");
+  const res = await fetch(base + path, { method: "POST", headers: headers(), body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} from ${path}: ${(await res.text()).slice(0, 200)}`);
+  return res;
+}
+
+async function findAssistant() {
+  const list = await (await api("/assistants/search", { limit: 20 })).json();
+  const match = list.find((a) => a.graph_id === GRAPH_ID) || list[0];
+  if (!match) throw new Error("The server has no agents. Is `mda dev` running in the project?");
+  return match.assistant_id;
+}
+
+async function* sse(res) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) return;
+    buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+    let end;
+    while ((end = buffer.indexOf("\n\n")) >= 0) {
+      const block = buffer.slice(0, end);
+      buffer = buffer.slice(end + 2);
+      let event = "message", data = "";
+      for (const line of block.split("\n")) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trim();
+      }
+      if (data) yield { event, data: JSON.parse(data) };
+    }
   }
-  if (step.sup) {
-    els.supText.textContent = step.sup;
-    els.supBox.classList.add("active");
-    addMessage("msg--sup", null, null, step.sup);
-    setTalking(null);
-    return 1100;
+}
+
+// Every message the run adds, from any node of the graph.
+function* messagesOf(update) {
+  for (const node of Object.values(update || {})) {
+    const msgs = node && node.messages;
+    if (Array.isArray(msgs)) yield* msgs;
   }
-  if (step.who) {
-    const isBuyer = step.who === "buyer";
-    setTalking(step.who);
-    movePin(isBuyer ? els.pinB : els.pinS, step.price);
-    addMessage(isBuyer ? "msg--buyer" : "msg--seller", isBuyer ? "Buyer" : "Seller",
-      `${step.kind} ${eur(step.price)}`, step.text);
-    return 2600;
+}
+
+const textOf = (content) =>
+  typeof content === "string" ? content
+    : Array.isArray(content) ? content.map((c) => (typeof c === "string" ? c : c.text || "")).join("") : "";
+
+// --- Negotiation state ---
+
+const state = { pending: new Map(), buyerOffers: 0, deal: null };
+
+function parseReply(text) {
+  const m = text.match(/(OFFER|ACCEPT)\s*:\s*€?\s*(\d+(?:[.,]\d+)?)/i);
+  if (!m) return null;
+  return { kind: m[1].toUpperCase(), price: parseFloat(m[2].replace(",", ".")) };
+}
+
+function onToolCall(call) {
+  if (call.name !== "task") return;
+  const who = call.args.subagent_type;
+  state.pending.set(call.id, who);
+  const brief = String(call.args.description || "").replace(/\s+/g, " ").slice(0, 160);
+  setSupervisor(`Asking ${who}`);
+  addMessage("msg--sup", null, null, `Supervisor → ${who}: ${brief}`);
+  setTalking(who);
+}
+
+function onToolResult(msg) {
+  const who = state.pending.get(msg.tool_call_id);
+  if (!who) return;
+  const reply = textOf(msg.content).trim();
+  const parsed = parseReply(reply);
+  const isBuyer = who === "buyer";
+  if (isBuyer) {
+    state.buyerOffers += 1;
+    els.round.textContent = `Round ${Math.min(state.buyerOffers, ROUNDS)} of ${ROUNDS}`;
   }
+  if (parsed) {
+    movePin(isBuyer ? els.pinB : els.pinS, parsed.price);
+    if (parsed.kind === "ACCEPT") state.deal = parsed.price;
+  }
+  const body = parsed ? reply.replace(/^[^\n]*(OFFER|ACCEPT)[^\n]*\n?/i, "").trim() || reply : reply;
+  addMessage(isBuyer ? "msg--buyer" : "msg--seller", isBuyer ? "Buyer" : "Seller",
+    parsed ? `${parsed.kind} ${eur(parsed.price)}` : "", body);
   setTalking(null);
-  els.supText.textContent = "Deal checked: price and quantity are valid";
-  els.deal.hidden = false;
-  els.deal.style.left = pct(step.done);
+}
+
+function onFinal(msg) {
+  setTalking(null);
+  const text = textOf(msg.content).trim();
+  if (!text) return;
+  const valid = state.deal != null && state.deal >= MIN && state.deal <= MAX;
+  setSupervisor(valid ? "Deal checked: price and quantity are valid" : "Negotiation finished");
+  if (valid) {
+    els.deal.hidden = false;
+    els.deal.style.left = pct(state.deal);
+  }
   els.result.hidden = false;
-  els.result.innerHTML = `Agreement reached at <b>${eur(step.done)}</b> per kWh for ${QTY} kWh. ` +
-    `Total cost: <b>${eur(step.done * QTY)}</b>.`;
-  return 0;
+  els.result.replaceChildren();
+  if (valid) {
+    const b = document.createElement("b");
+    b.textContent = `${eur(state.deal)} per kWh, ${eur(state.deal * QTY)} for ${QTY} kWh. `;
+    els.result.append(b);
+  }
+  els.result.append(document.createTextNode(text));
 }
 
-function tick() {
-  if (paused || index >= SCRIPT.length) return;
-  const wait = runStep(SCRIPT[index++]);
-  if (index < SCRIPT.length) timer = setTimeout(tick, wait);
+function handle(msg) {
+  if (msg.type === "ai") {
+    (msg.tool_calls || []).forEach(onToolCall);
+    if (!(msg.tool_calls || []).length) onFinal(msg);
+  } else if (msg.type === "tool") {
+    onToolResult(msg);
+  }
 }
 
-els.play.addEventListener("click", () => {
-  paused = !paused;
-  els.play.textContent = paused ? "Play" : "Pause";
-  if (!paused) { clearTimeout(timer); tick(); }
-});
-els.replay.addEventListener("click", () => {
+async function start() {
   reset();
-  paused = false;
-  els.play.textContent = "Pause";
-  tick();
-});
+  state.pending.clear();
+  state.buyerOffers = 0;
+  state.deal = null;
+  els.start.disabled = true;
+  els.start.textContent = "Negotiating…";
+  setStatus("Connecting to the agent…");
+  try {
+    const assistant_id = await findAssistant();
+    const thread = await (await api("/threads", {})).json();
+    const res = await api(`/threads/${thread.thread_id}/runs/stream`, {
+      assistant_id,
+      input: { messages: [{ role: "user", content: PROMPT }] },
+      stream_mode: ["updates"],
+    });
+    setStatus("");
+    for await (const { event, data } of sse(res)) {
+      if (event === "error") throw new Error(data.message || JSON.stringify(data));
+      if (event.startsWith("updates")) for (const m of messagesOf(data)) handle(m);
+    }
+  } catch (err) {
+    const hint = err instanceof TypeError
+      ? "Could not reach the server. Start it with `mda dev` in the project folder, then check the address under Connection."
+      : err.message;
+    setStatus(hint, true);
+  } finally {
+    setTalking(null);
+    els.start.disabled = false;
+    els.start.textContent = "Run again";
+  }
+}
 
-tick();
+els.start.addEventListener("click", start);
