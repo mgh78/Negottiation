@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gridmates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="page">
+  <header class="intro">
+    <h1>Gridmates</h1>
+    <p>Two agents haggle over 3&nbsp;kWh of electricity. A supervisor passes offers between them and never reveals either side's limit.</p>
+  </header>
+
+  <section class="stage" aria-label="Negotiation">
+    <div class="actor actor--buyer" id="buyer">
+      <svg viewBox="0 0 120 150" role="img" aria-label="Buyer agent">
+        <line class="ant" x1="60" y1="10" x2="60" y2="26"/>
+        <circle class="ant-tip" cx="60" cy="8" r="5"/>
+        <rect class="head" x="22" y="26" width="76" height="62" rx="18"/>
+        <circle class="eye" cx="45" cy="55" r="6"/>
+        <circle class="eye" cx="75" cy="55" r="6"/>
+        <rect class="mouth" x="46" y="72" width="28" height="5" rx="2.5"/>
+        <rect class="body" x="30" y="94" width="60" height="46" rx="14"/>
+        <path class="plug" d="M52 108v-8m16 8v-8M48 108h24v6a12 12 0 0 1-24 0z"/>
+      </svg>
+      <h2>Buyer</h2>
+      <p class="limit">Needs 3 kWh · pays up to <b>€0.25</b></p>
+    </div>
+
+    <div class="mid">
+      <div class="supervisor" id="supervisor">
+        <span class="dot"></span><span id="sup-text">Supervisor ready</span>
+      </div>
+      <div class="meter" aria-label="Price per kWh">
+        <div class="track">
+          <div class="pin pin--buyer" id="pin-buyer" hidden><span></span></div>
+          <div class="pin pin--seller" id="pin-seller" hidden><span></span></div>
+          <div class="deal" id="deal" hidden></div>
+        </div>
+        <div class="scale"><span>€0.10</span><span>price per kWh</span><span>€0.25</span></div>
+      </div>
+    </div>
+
+    <div class="actor actor--seller" id="seller">
+      <svg viewBox="0 0 120 150" role="img" aria-label="Seller agent">
+        <line class="ant" x1="60" y1="10" x2="60" y2="26"/>
+        <circle class="ant-tip" cx="60" cy="8" r="5"/>
+        <rect class="head" x="22" y="26" width="76" height="62" rx="18"/>
+        <circle class="eye" cx="45" cy="55" r="6"/>
+        <circle class="eye" cx="75" cy="55" r="6"/>
+        <rect class="mouth" x="46" y="72" width="28" height="5" rx="2.5"/>
+        <rect class="body" x="30" y="94" width="60" height="46" rx="14"/>
+        <path class="sun" d="M60 104l4 8 8 4-8 4-4 8-4-8-8-4 8-4z"/>
+      </svg>
+      <h2>Seller</h2>
+      <p class="limit">Has 5 kWh · sells from <b>€0.10</b></p>
+    </div>
+  </section>
+
+  <section class="chat" aria-live="polite">
+    <div class="chat-head">
+      <span id="round-label">Round 1 of 3</span>
+      <div class="controls">
+        <button type="button" id="btn-play">Pause</button>
+        <button type="button" id="btn-replay">Replay</button>
+      </div>
+    </div>
+    <ol class="log" id="log"></ol>
+    <div class="result" id="result" hidden></div>
+  </section>
+
+  <footer class="note">Scripted replay of the negotiation protocol. It does not call the live agent.</footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
