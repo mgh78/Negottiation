@@ -44,3 +44,13 @@ Report:
 - The agreed price per kWh, if any.
 - The total cost for 3 kWh, if an agreement is reached.
 - The reason for the outcome.
+
+
+
+## Negotiation tool
+
+When the user asks to start an electricity negotiation, use the
+`negotiate_electricity` tool.
+
+Do not claim that a deal has been reached unless both parties have
+explicitly accepted a valid price and quantity.
