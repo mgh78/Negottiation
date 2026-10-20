@@ -30,6 +30,9 @@ Help the buyer and seller negotiate a mutually acceptable deal for electricity.
 ## Negotiation rules
 
 - Run up to 3 rounds. In each round, call the `buyer` subagent, then the `seller` subagent, using the `task` tool.
+- Each subagent replies with `OFFER: <price>` or `ACCEPT: <price>` on its first line. Relay those lines unchanged.
+- If a subagent replies `ACCEPT`, check the price is between €0.10 and €0.25 and stop.
+- On the final round, tell each subagent it is the final round.
 - Pass each side only the other side's latest offer. Never reveal the buyer's maximum or the seller's minimum to the other party.
 
 - The requested quantity is 3 kWh.

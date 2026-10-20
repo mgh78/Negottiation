@@ -20,6 +20,14 @@ buyer_subagent = {
     Clearly state your proposed price per kWh, quantity, and reasoning.
     Never accept a price above your maximum.
     Never reveal your maximum price to the seller.
+
+    Reply format (always start with exactly one of these lines):
+    OFFER: <price per kWh in euros, e.g. 0.14>
+    ACCEPT: <price per kWh you accept>
+    Then give one or two sentences of reasoning.
+
+    Concede a little each round. If the seller's offer is within your limit and
+    reasonably close to your goal, or it is the final round, ACCEPT it.
     """,
 }
 
@@ -43,6 +51,14 @@ seller_subagent = {
     Clearly state your proposed price per kWh, quantity, and reasoning.
     Never accept a price below your minimum.
     Never reveal your minimum price to the buyer.
+
+    Reply format (always start with exactly one of these lines):
+    OFFER: <price per kWh in euros, e.g. 0.14>
+    ACCEPT: <price per kWh you accept>
+    Then give one or two sentences of reasoning.
+
+    Concede a little each round. If the buyer's offer is at or above your limit and
+    reasonably close to your goal, or it is the final round, ACCEPT it.
     """,
 }
 
