@@ -147,6 +147,20 @@ button {
 button:hover { border-color: var(--muted); }
 button:focus-visible { outline: 2px solid var(--buyer); outline-offset: 2px; }
 
+.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+button:disabled { opacity: .5; cursor: default; }
+.settings { margin-bottom: 14px; font-size: .85rem; color: var(--muted); }
+.settings summary { cursor: pointer; }
+.settings label { display: block; margin-top: 10px; }
+.settings input {
+  width: 100%; margin-top: 4px; padding: 8px 10px;
+  font: 500 .85rem var(--font-mono);
+  color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.status { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; font-size: .9rem; border: 1px solid var(--line); }
+.status.error { border-color: #c0392b; color: #c0392b; }
+code { font-family: var(--font-mono); font-size: .9em; }
 .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .msg { display: grid; gap: 4px; max-width: 78%; animation: in .35s ease-out both; }
 .msg--buyer { justify-self: start; --c: var(--buyer); --soft: var(--buyer-soft); }

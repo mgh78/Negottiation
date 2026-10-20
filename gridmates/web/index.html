@@ -64,17 +64,24 @@
 
   <section class="chat" aria-live="polite">
     <div class="chat-head">
-      <span id="round-label">Round 1 of 3</span>
+      <span id="round-label">Not started</span>
       <div class="controls">
-        <button type="button" id="btn-play">Pause</button>
-        <button type="button" id="btn-replay">Replay</button>
+        <button type="button" id="btn-start" class="primary">Start negotiation</button>
       </div>
     </div>
+    <details class="settings">
+      <summary>Connection</summary>
+      <label for="server">Agent server</label>
+      <input id="server" type="url" value="http://127.0.0.1:2024" spellcheck="false">
+      <label for="apikey">LangSmith API key (only if the server asks for one)</label>
+      <input id="apikey" type="password" autocomplete="off" spellcheck="false">
+    </details>
+    <p class="status" id="status" hidden></p>
     <ol class="log" id="log"></ol>
     <div class="result" id="result" hidden></div>
   </section>
 
-  <footer class="note">Scripted replay of the negotiation protocol. It does not call the live agent.</footer>
+  <footer class="note">Runs the live agent through the local server started with <code>mda dev</code>. Each run uses model credits.</footer>
 </main>
 <script src="app.js"></script>
 </body>
