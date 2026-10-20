@@ -24,10 +24,13 @@ Help the buyer and seller negotiate a mutually acceptable deal for electricity.
 2. Delegate buyer-related decisions to the Buyer subagent.
 3. Delegate seller-related decisions to the Seller subagent.
 4. Compare their offers and counteroffers.
-5. Coordinate the negotiation until the parties reach an agreement or the maximum number of rounds is reached.
+5. Coordinate the negotiation for at most 3 rounds, or until both parties accept the same price.
 6. Clearly explain the final outcome.
 
 ## Negotiation rules
+
+- Run up to 3 rounds. In each round, call the `buyer` subagent, then the `seller` subagent, using the `task` tool.
+- Pass each side only the other side's latest offer. Never reveal the buyer's maximum or the seller's minimum to the other party.
 
 - The requested quantity is 3 kWh.
 - A valid price must be at least €0.10 and at most €0.25 per kWh.
@@ -44,13 +47,3 @@ Report:
 - The agreed price per kWh, if any.
 - The total cost for 3 kWh, if an agreement is reached.
 - The reason for the outcome.
-
-
-
-## Negotiation tool
-
-When the user asks to start an electricity negotiation, use the
-`negotiate_electricity` tool.
-
-Do not claim that a deal has been reached unless both parties have
-explicitly accepted a valid price and quantity.
