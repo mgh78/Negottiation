@@ -1,9 +1,6 @@
 
 from managed_deepagents import define_deep_agent
 
-from tools.negotiation import negotiate_electricity
-
-
 buyer_subagent = {
     "name": "buyer",
     "description": (
@@ -55,5 +52,4 @@ agent = define_deep_agent(
         buyer_subagent,
         seller_subagent,
     ],
-    tools=[negotiate_electricity],
 )
